@@ -13,6 +13,7 @@
 
 struct Target_t {
   using Init_t = bool (*)(const Options_t &, const CpuState_t &);
+  using PreprocessTestcase_t = bool(*)(std::string &Testcase);
   using InsertTestcase_t = bool (*)(const uint8_t *, const size_t);
   using Restore_t = bool (*)();
   using CreateMutator_t = std::unique_ptr<Mutator_t> (*)(std::mt19937_64 &,
@@ -22,10 +23,12 @@ struct Target_t {
       const std::string &_Name, const Init_t _Init,
       const InsertTestcase_t _InsertTestcase,
       const Restore_t _Restore = []() { return true; },
-      const CreateMutator_t _CreateMutator = LibfuzzerMutator_t::Create);
+      const CreateMutator_t _CreateMutator = LibfuzzerMutator_t::Create,
+      const PreprocessTestcase_t _PreprocessTestcase = [](std::string &Testcase) { return true; });
 
   std::string Name;
   Init_t Init = nullptr;
+  PreprocessTestcase_t PreprocessTestcase = nullptr;
   InsertTestcase_t InsertTestcase = nullptr;
   Restore_t Restore = nullptr;
   CreateMutator_t CreateMutator = nullptr;

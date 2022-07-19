@@ -79,6 +79,7 @@ Receive(const SocketFd_t Fd, const std::span<uint8_t> ScratchBuffer);
 template <typename Ar> void serialize(Ar &ar, Ok_t &) {}
 template <typename Ar> void serialize(Ar &ar, Timedout_t &) {}
 template <typename Ar> void serialize(Ar &ar, Cr3Change_t &) {}
+template <typename Ar> void serialize(Ar &ar, Interesting_t&) {}
 template <typename Ar> void serialize(Ar &ar, Crash_t &Crash) {
   ar &Crash.CrashName;
 }

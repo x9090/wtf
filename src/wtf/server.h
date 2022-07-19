@@ -79,6 +79,8 @@ class ServerStats_t {
 
   uint64_t Cr3s_ = 0;
 
+  uint64_t Interestings_ = 0;
+
   //
   // The number of testcases that triggered a timeout.
   //
@@ -194,10 +196,10 @@ public:
     fmt::print("#{} cov: {} (+{}) corp: {} ({:.1f}{}) exec/s: {:.1f}{} ({} "
                "nodes) lastcov: "
                "{:.1f}{} crash: {} "
-               "timeout: {} cr3: {} uptime: {:.1f}{}\n",
+               "timeout: {} cr3: {} interesting: {} uptime: {:.1f}{}\n",
                TestcasesNumber_, Coverage_, CovDiff, CorpusSize_, CorpusBytes,
                CorpusSizeUnit, ExecsPerSecond, ExecsPerSecondUnit, Clients_,
-               LastCov, LastCovUnit, Crashes_, Timeouts_, Cr3s_, Uptime,
+               LastCov, LastCovUnit, Crashes_, Timeouts_, Cr3s_, Interestings_, Uptime,
                UptimeUnit);
 
     //
@@ -235,7 +237,9 @@ public:
       Crashes_++;
     } else if (std::holds_alternative<Timedout_t>(TestcaseResult)) {
       Timeouts_++;
-    }
+	} else if (std::holds_alternative<Interesting_t>(TestcaseResult)) {
+      Interestings_++;
+	}
   }
 };
 

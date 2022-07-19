@@ -32,6 +32,11 @@ int RunSubcommand(const Options_t &Opts, const Target_t &Target,
   }
 
   //
+  // Explicitly enable context switching
+  // 
+  if (Opts.Run.AllowCr3) g_Backend->SetAllowContextSwitch();
+
+  //
   // Initialize the fuzzer.
   //
 
@@ -48,13 +53,20 @@ int RunSubcommand(const Options_t &Opts, const Target_t &Target,
   const bool PrintRunStats = Testcases.size() == 1 && RunOpts.Runs == 1;
   for (const fs::path &Testcase : Testcases) {
 
+	uint64_t StartingAddress = 0;
+	if (RunOpts.StartingAddress.size() > 0) {
+		if (RunOpts.StartingAddress.find("0x") == 0 || RunOpts.StartingAddress.find("0X") == 0)
+			StartingAddress = _strtoui64(RunOpts.StartingAddress.substr(2).c_str(), nullptr, 16);
+		else
+			StartingAddress = _strtoui64(RunOpts.StartingAddress.c_str(), nullptr, 16);
+	}
     //
     // Initialize the trace file if the user wants to.
     //
 
     if (!RunOpts.BaseTracePath.empty()) {
-      const std::string TraceName =
-          fmt::format("{}.trace", Testcase.filename().string());
+      const std::string TraceName = StartingAddress == 0 ? 
+          fmt::format("{}.trace", Testcase.filename().string()) : fmt::format("{}_{}.trace", Testcase.filename().string(), RunOpts.StartingAddress);
       const fs::path TestcaseTracePath(RunOpts.BaseTracePath / TraceName);
 
       //
@@ -68,7 +80,7 @@ int RunSubcommand(const Options_t &Opts, const Target_t &Target,
       }
 
       fmt::print("Trace file {}\n", TestcaseTracePath.string());
-      if (!g_Backend->SetTraceFile(TestcaseTracePath, RunOpts.TraceType)) {
+      if (!g_Backend->SetTraceFile(TestcaseTracePath, RunOpts.TraceType, StartingAddress)) {
         fmt::print("SetTraceFile failed.\n");
         return EXIT_FAILURE;
       }

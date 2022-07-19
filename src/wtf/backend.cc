@@ -8,9 +8,13 @@
 
 Backend_t *g_Backend = nullptr;
 
-bool Backend_t::SetTraceFile(const fs::path &, const TraceType_t) {
+bool Backend_t::SetTraceFile(const fs::path &, const TraceType_t, const uint64_t) {
   fmt::print("SetTraceFile not implemented.\n");
   return true;
+}
+
+void Backend_t::SetAllowContextSwitch() {
+  fmt::print("SetAllowContextSwitch not implemented.\n");
 }
 
 bool Backend_t::PhysWrite(const Gpa_t Gpa, const uint8_t *Buffer,
@@ -202,6 +206,19 @@ bool Backend_t::SetBreakpoint(const char *Symbol,
   }
 
   return SetBreakpoint(Gva, Handler);
+}
+
+bool Backend_t::SetBreakpoint(const char *Symbol,
+                              uint32_t offset,
+                              const BreakpointHandler_t Handler) {
+  const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
+  if (Gva == Gva_t(0)) {
+    fmt::print("Could not set a breakpoint at {} offset {:#x}.\n", Symbol, offset);
+    return false;
+  }
+  
+  Gva_t Gva_offset = Gva + Gva_t(offset);
+  return SetBreakpoint(Gva_offset, Handler);
 }
 
 bool Backend_t::SetCrashBreakpoint(const Gva_t Gva) {

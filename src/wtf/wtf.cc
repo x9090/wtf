@@ -174,7 +174,10 @@ int main(int argc, const char *argv[]) {
       ->transform(CLI::CheckedTransformer(TraceTypeMap, CLI::ignore_case))
       ->description("Type of trace to generate.");
 
-  TraceOpt->require_option(0, 2);
+  TraceOpt->add_option("--trace-starting-address", Opts.Run.StartingAddress, "Starting address")
+	  ->description("Starting address where tracer will start tracing.");
+
+  TraceOpt->require_option(0, 3);
 
   const std::unordered_map<std::string, BackendType_t> BackendTypeMap = {
       {"bochscpu", BackendType_t::Bochscpu},
@@ -231,6 +234,10 @@ int main(int argc, const char *argv[]) {
   RunCmd->add_option("--runs", Opts.Run.Runs, "Runs")
       ->description("Number of mutations done.")
       ->default_val(1);
+  
+  RunCmd->add_flag("--allow-cr3", Opts.Run.AllowCr3,
+                     "Allow context switching. Override the default behavior in "
+                     "bochscpu backend");
 
   CLI::App *FuzzCmd =
       Wtf.add_subcommand("fuzz", "Fuzzing options")->callback([&Opts] {
@@ -315,6 +322,10 @@ int main(int argc, const char *argv[]) {
       ->check(CLI::ExistingDirectory)
       ->description("Directory where all the guest files are stored in.");
 
+  FuzzCmd->add_option("--coverage", Opts.CoveragePath, "Coverage files")
+	  ->check(CLI::ExistingDirectory)
+	  ->description("Directory where all the coverage files are stored in.");
+
   FuzzCmd->add_option("--seed", Opts.Fuzz.Seed, "Specify a seed for the RNGs")
       ->description("Override the seed used to initialize RNGs.");
 
@@ -324,7 +335,12 @@ int main(int argc, const char *argv[]) {
       ->default_val("tcp://localhost:31337/")
       ->description("Connect to the master node.");
 
-  CLI11_PARSE(Wtf, argc, argv);
+  FuzzCmd->add_flag("--allow-cr3", Opts.Fuzz.AllowCr3,
+                      "Allow context switching. Override the default behavior in "
+                      "bochscpu backend");
+
+  CLI11_PARSE(Wtf, argc, argv
+  );
 
   //
   // Check if the user has the right target before doing any heavy lifting.

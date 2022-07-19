@@ -104,6 +104,8 @@ public:
 
   void ResetCursor() { Current_ = BufferStart_.get(); }
 
+  void SetCursor(uint64_t offset) { Current_ = (uint8_t*)(Current_ + offset); }
+
   bool NtReadFile(NTSTATUS &NtStatus, IO_STATUS_BLOCK *HostIoStatusBlock,
                   uint8_t *Buffer, const uint32_t Length) {
     if (BufferStart_ == nullptr) {

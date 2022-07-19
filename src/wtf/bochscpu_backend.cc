@@ -273,6 +273,14 @@ bool BochscpuBackend_t::SetBreakpoint(const Gva_t Gva,
   return true;
 }
 
+void BochscpuBackend_t::RemoveBreakpoint(const Gva_t Gva) {
+  
+  if (Breakpoints_.contains(Gva)) {
+    Breakpoints_.erase(Gva);
+  } 
+
+}
+
 void BochscpuBackend_t::SetLimit(const uint64_t InstructionLimit) {
   InstructionLimit_ = InstructionLimit;
 }
@@ -300,12 +308,24 @@ BochscpuBackend_t::Run(const uint8_t *Buffer, const uint64_t BufferSize) {
 
   Tenet_.MemAccesses_.clear();
   Tenet_.PastFirstInstruction_ = false;
+  Tenet_.DumpFirstTenetDelta_ = false;
+
+  //
+  // Reset RipTrace state
+  // 
+
+  RipTrace_.PastFirstInstruction_ = false;
+
+  if (TraceType_ == TraceType_t::Tenet)
+      Tenet_.StartTracingAt_ = Gva_t(StartingAddress_);
+  else if (TraceType_ == TraceType_t::Rip)
+      RipTrace_.StartTracingAt_ = Gva_t(StartingAddress_);
 
   //
   // Force dumping all the registers if this is a Tenet trace.
   //
 
-  if (TraceType_ == TraceType_t::Tenet) {
+  if (TraceType_ == TraceType_t::Tenet && Tenet_.StartTracingAt_ == Gva_t(0)) {
     DumpTenetDelta(true);
   }
 
@@ -431,11 +451,17 @@ __declspec(safebuffers)
     LastNewCoverage_.emplace(Rip);
   }
 
-  const bool TenetTrace = TraceType_ == TraceType_t::Tenet;
   if (TraceFile_) {
-    const bool RipTrace = TraceType_ == TraceType_t::Rip;
+    const bool TenetTrace = TraceType_ == TraceType_t::Tenet;
+    bool RipTrace = TraceType_ == TraceType_t::Rip && RipTrace_.StartTracingAt_ == Gva_t(0);
     const bool UniqueRipTrace = TraceType_ == TraceType_t::UniqueRip;
     const bool NewRip = Res.second;
+
+    if (RipTrace_.StartTracingAt_ != Gva_t(0) && RipTrace_.StartTracingAt_ == Rip)
+      RipTrace_.PastFirstInstruction_ = true;
+
+    if (RipTrace_.PastFirstInstruction_)
+      RipTrace = true;
 
     if (RipTrace || (UniqueRipTrace && NewRip)) {
 
@@ -446,6 +472,27 @@ __declspec(safebuffers)
 
       fmt::print(TraceFile_, "{:#x}\n", Rip);
     } else if (TenetTrace) {
+
+      //
+      // Start recording traces after it hits the desired instruction to generate
+      // smaller trace file size
+      //
+
+      if (!Tenet_.PastFirstInstruction_ && Tenet_.StartTracingAt_ != Gva_t(0) && Rip != Tenet_.StartTracingAt_) {
+        Tenet_.MemAccesses_.clear();
+        goto SKIP_TENET;
+      }
+
+      //
+      // Force dumping the first Tenet traces
+      // if tracing should not start at snapshot entrypoint
+      // 
+
+      if (Tenet_.StartTracingAt_ != Gva_t(0) && !Tenet_.DumpFirstTenetDelta_) {
+        Tenet_.DumpFirstTenetDelta_ = true;
+        DumpTenetDelta(true);
+      }
+
       if (Tenet_.PastFirstInstruction_) {
 
         //
@@ -460,9 +507,10 @@ __declspec(safebuffers)
       // Save a complete copy of the registers so that we can diff them against
       // the next step when taking Tenet traces.
       //
-
-      bochscpu_cpu_state(Cpu_, &Tenet_.CpuStatePrev_);
+      
       Tenet_.PastFirstInstruction_ = true;
+SKIP_TENET:
+      bochscpu_cpu_state(Cpu_, &Tenet_.CpuStatePrev_);
     }
   }
 
@@ -574,9 +622,15 @@ void BochscpuBackend_t::TlbControlHook(/*void *Context, */ uint32_t,
   }
 
   //
+  // Allow explicit context switch
+  // 
+  if (AllowCr3Switch_) {
+    return;  
+  }
+
+  //
   // Stop the cpu as we don't want to be context-switching.
   //
-
   BochsHooksDebugPrint("The cr3 register is getting changed ({:#x})\n",
                        NewCrValue);
   BochsHooksDebugPrint("Stopping cpu.\n");
@@ -694,7 +748,7 @@ bool BochscpuBackend_t::Restore(const CpuState_t &CpuState) {
 }
 
 bool BochscpuBackend_t::SetTraceFile(const std::filesystem::path &TraceFile,
-                                     const TraceType_t TraceType) {
+                                     const TraceType_t TraceType, const uint64_t StartingAddress) {
   //
   // Open the trace file.
   //
@@ -709,8 +763,13 @@ bool BochscpuBackend_t::SetTraceFile(const std::filesystem::path &TraceFile,
   //
 
   TraceType_ = TraceType;
+
+  StartingAddress_ = StartingAddress;
+
   return true;
 }
+
+void BochscpuBackend_t::SetAllowContextSwitch() { AllowCr3Switch_ = true; }
 
 void BochscpuBackend_t::DirtyVirtualMemoryRange(const Gva_t Gva,
                                                 const uint64_t Len) {
@@ -1110,6 +1169,12 @@ MemAccessToTenetLabel(const uint32_t MemAccess) {
 }
 
 void BochscpuBackend_t::DumpTenetDelta(const bool Force) {
+
+  //
+  // Skip Tenet trace if first instruction is not hit
+  // 
+  if (!Tenet_.PastFirstInstruction_ && !Force)
+    return;
 
   //
   // Dump register deltas.

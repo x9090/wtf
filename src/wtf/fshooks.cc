@@ -879,9 +879,11 @@ bool SetupFilesystemHooks() {
 
         uint64_t HostByteOffset;
         if (GuestByteOffset) {
-          fmt::print("Need to implement ByteOffset?\n");
-          __debugbreak();
-          ExitProcess(0);
+          /*fmt::print("Need to implement ByteOffset?\n");
+          __debugbreak();*/
+          Backend->VirtReadStruct(GuestByteOffset, &HostByteOffset);
+          GuestFile->SetCursor(HostByteOffset);
+          //ExitProcess(0);
         }
 
         //

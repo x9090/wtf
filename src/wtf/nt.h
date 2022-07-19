@@ -237,6 +237,53 @@ struct EXCEPTION_RECORD {
 static_assert(sizeof(EXCEPTION_RECORD) == 0x98);
 } // namespace wtf
 
+//
+// NT registries
+//
+
+typedef enum _KEY_INFORMATION_CLASS {
+	KeyBasicInformation,
+	KeyNodeInformation,
+	KeyFullInformation,
+	KeyNameInformation,
+	KeyCachedInformation,
+	KeyFlagsInformation,
+	KeyVirtualizationInformation,
+	KeyHandleTagsInformation,
+	KeyTrustInformation,
+	KeyLayerInformation,
+	MaxKeyInfoClass
+} KEY_INFORMATION_CLASS;
+
+typedef enum _KEY_VALUE_INFORMATION_CLASS {
+	KeyValueBasicInformation,
+	KeyValueFullInformation,
+	KeyValuePartialInformation,
+	KeyValueFullInformationAlign64,
+	KeyValuePartialInformationAlign64,
+	KeyValueLayerInformation,
+	MaxKeyValueInfoClass
+} KEY_VALUE_INFORMATION_CLASS;
+
+
+typedef NTSTATUS(NTAPI* NTOPENKEY)(PHANDLE, ACCESS_MASK, OBJECT_ATTRIBUTES*);
+typedef NTSTATUS(NTAPI* NTQUERYKEY)(HANDLE, KEY_INFORMATION_CLASS, PVOID, ULONG, PULONG);
+typedef NTSTATUS(NTAPI* NTQUERYVALUEKEY)(HANDLE, PUNICODE_STRING, KEY_VALUE_INFORMATION_CLASS, PVOID, ULONG, PULONG);
+typedef NTSTATUS(NTAPI* NTCLOSE)(HANDLE);
+
+extern NTOPENKEY NtOpenKey;
+extern NTQUERYKEY NtQueryKey;
+extern NTQUERYVALUEKEY NtQueryValueKey;
+extern NTCLOSE NtClose;
+
+#ifndef STATUS_BUFFER_OVERFLOW
+#define STATUS_BUFFER_OVERFLOW           ((NTSTATUS)0x80000005L)
+#endif
+
+#ifndef STATUS_BUFFER_TOO_SMALL
+#define STATUS_BUFFER_TOO_SMALL          ((NTSTATUS)0xC0000023L)
+#endif
+
 #ifndef DBG_PRINTEXCEPTION_C
 #define DBG_PRINTEXCEPTION_C 0x40010006
 #endif

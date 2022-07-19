@@ -221,6 +221,10 @@ public:
   [[nodiscard]] const char16_t *ObjectName() const {
     return HostObjectAttributes_.ObjectName->Buffer;
   }
+
+  [[nodiscard]] OBJECT_ATTRIBUTES* ObjectAttributes() {
+	  return &HostObjectAttributes_;
+  }
 };
 
 const uint64_t _1MB = Page::Size * Page::Size;
@@ -286,3 +290,16 @@ BytesToHuman(const uint64_t Bytes_);
 //
 
 [[nodiscard]] std::string_view ExceptionCodeToStr(const uint32_t ExceptionCode);
+
+//
+// Utility to split string based on the delimiter
+//
+
+[[nodiscard]] std::vector<std::string> SplitString(std::string source, const char *delimiter);
+
+//
+// Utility to convert std::string to lower string
+//
+std::string toLowerString(const std::string& S);
+
+std::u16string toLowerWString(const std::u16string& S);

@@ -1205,6 +1205,11 @@ struct FuzzOptions_t {
   //
 
   std::string Address;
+
+  //
+  // Allow context switching
+  //
+  bool AllowCr3 = false;
 };
 
 struct RunOptions_t {
@@ -1221,6 +1226,13 @@ struct RunOptions_t {
   TraceType_t TraceType = TraceType_t::NoTrace;
 
   //
+  // Trace starting address
+  // useful to reduce the trace file size
+  // 
+  
+  std::string StartingAddress;
+
+  //
   // Input path or input folder.
   //
 
@@ -1232,6 +1244,11 @@ struct RunOptions_t {
   //
 
   uint64_t Runs = 0;
+
+  //
+  // Allow context switching
+  //
+  bool AllowCr3 = false;
 };
 
 struct MasterOptions_t {

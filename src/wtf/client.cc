@@ -11,6 +11,7 @@ class ClientStats_t {
   uint64_t Crashes_ = 0;
   uint64_t Cr3s_ = 0;
   uint64_t Timeouts_ = 0;
+  uint64_t Interestings_ = 0;
 
   chrono::system_clock::time_point Start_ = chrono::system_clock::now();
   chrono::system_clock::time_point LastPrint_ = chrono::system_clock::now();
@@ -50,9 +51,9 @@ public:
         double(TestcasesNumber_) / double(SecondsSince(Start_).count()));
 
     fmt::print("#{} cov: {} exec/s: {:.1f}{} lastcov: {:.1f}{} crash: {} "
-               "timeout: {} cr3: {} uptime: {:.1f}{}\n",
+               "timeout: {} cr3: {} interesting: {} uptime: {:.1f}{}\n",
                TestcasesNumber_, Coverage_, ExecsPerSecond, ExecsPerSecondUnit,
-               LastCov, LastCovUnit, Crashes_, Timeouts_, Cr3s_, Uptime,
+               LastCov, LastCovUnit, Crashes_, Timeouts_, Cr3s_, Interestings_, Uptime,
                UptimeUnit);
 
     LastPrint_ = chrono::system_clock::now();
@@ -79,7 +80,9 @@ public:
       Crashes_++;
     } else if (std::holds_alternative<Timedout_t>(TestcaseResult)) {
       Timeouts_++;
-    }
+	} else if (std::holds_alternative<Interesting_t>(TestcaseResult)) {
+	  Interestings_++;
+	}
   }
 };
 
@@ -208,6 +211,12 @@ std::string Client_t::DeserializeTestcase(const std::span<uint8_t> Buffer) {
 }
 
 int Client_t::Run(const Target_t &Target, const CpuState_t &CpuState) {
+  
+  //
+  // Explicitly enable context switching
+  //
+  if (Opts_.Fuzz.AllowCr3) g_Backend->SetAllowContextSwitch();
+
   if (!Target.Init(Opts_, CpuState)) {
     fmt::print("Failed to initialize the target\n");
     return EXIT_FAILURE;
@@ -234,8 +243,17 @@ int Client_t::Run(const Target_t &Target, const CpuState_t &CpuState) {
     // Deserialize the testcase.
     //
 
-    const std::string Testcase =
+    std::string Testcase =
         DeserializeTestcase({ScratchBuffer_.data(), *ReceivedSize});
+
+    //
+    // Preprocess the testcase
+    //
+
+    if (Target.PreprocessTestcase && !Target.PreprocessTestcase(Testcase)) {
+      fmt::print("Failed to preprocess the testcase\n");
+      return EXIT_FAILURE;
+    }
 
     //
     // Run the testcase.

@@ -217,6 +217,12 @@ class WhvBackend_t : public Backend_t {
   TraceType_t TraceType_ = TraceType_t::NoTrace;
 
   //
+  // Trace starting address (optional)
+  //
+
+  uint64_t StartingAddress_ = 0;
+
+  //
   // This is the trace file if we are tracing the current test case.
   //
 
@@ -277,7 +283,8 @@ public:
   //
 
   bool SetTraceFile(const fs::path &TestcaseTracePath,
-                    const TraceType_t TraceType) override;
+                    const TraceType_t TraceType,
+                    const uint64_t StartingAddress = 0) override;
 
   //
   // Breakpoints.
@@ -286,6 +293,10 @@ public:
   bool SetBreakpoint(const Gva_t Gva,
                      const BreakpointHandler_t Handler) override;
 
+  void RemoveBreakpoint(const Gva_t Gva) override;
+
+  //bool SetBreakpoint(const Gva_t Gva, uint32_t offset,
+  //                   const BreakpointHandler_t Handler) override;
   //
   // Virtual memory access.
   //

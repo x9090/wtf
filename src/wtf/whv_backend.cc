@@ -52,7 +52,8 @@ const std::unordered_map<Registers_t, WHV_REGISTER_NAME> RegisterMapping = {
     {Registers_t::R15, WHvX64RegisterR15},
     {Registers_t::Rflags, WHvX64RegisterRflags},
     {Registers_t::Cr2, WHvX64RegisterCr2},
-    {Registers_t::Cr3, WHvX64RegisterCr3}};
+    {Registers_t::Cr3, WHvX64RegisterCr3}
+};
 
 //
 // WHVExitReason to string conversion.
@@ -181,6 +182,17 @@ bool WhvBackend_t::Initialize(const Options_t &Opts,
   }
 
   //
+  // Turn on APIC 
+  // 
+  
+  Hr = SetPartitionProperty(WHvPartitionPropertyCodeLocalApicEmulationMode,
+                            WHvX64LocalApicEmulationModeXApic);
+  if (FAILED(Hr)) {
+    fmt::print("Failed SetPartitionProperty/ApicEmulationMode\n");
+    return false;
+  }
+
+  //
   // The partition is now ready, light it up.
   //
 
@@ -259,6 +271,11 @@ WhvBackend_t::SetPartitionProperty(
 
   case WHvPartitionPropertyCodeExceptionExitBitmap: {
     Property.ExceptionExitBitmap = PropertyValue;
+    break;
+  }
+
+  case WHvPartitionPropertyCodeLocalApicEmulationMode: {
+    Property.LocalApicEmulationMode = WHV_X64_LOCAL_APIC_EMULATION_MODE(PropertyValue);
     break;
   }
 
@@ -585,6 +602,26 @@ bool WhvBackend_t::SetBreakpoint(const Gva_t Gva,
   return true;
 }
 
+void WhvBackend_t::RemoveBreakpoint(const Gva_t Gva) {
+  
+  if (!Breakpoints_.contains(Gva)) {
+    fmt::print("Breakpoint {:#x} not found\n");
+    return;
+  }
+
+  Gpa_t Gpa;
+  const bool Translated = VirtTranslate(Gva, Gpa, MemoryValidate_t::ValidateReadExecute);
+  if (!Translated) {
+    fmt::print("GVA {:#x} translation failed.\n", Gva);
+    return;
+  }
+
+  Breakpoints_.erase(Gva);
+  Ram_.RemoveBreakpoint(Gpa);
+
+  return;
+}
+
 void WhvBackend_t::Stop(const TestcaseResult_t &Res) {
   TestcaseRes_ = Res;
   Stop_ = true;
@@ -843,7 +880,18 @@ std::optional<TestcaseResult_t> WhvBackend_t::Run(const uint8_t *Buffer,
       TestcaseRes_ = Timedout_t();
       break;
     }
-
+    
+    case WHvRunVpExitReasonX64Halt: {
+    
+      //
+      // If for some reason the CPU hit the nt!HalProcessorIdle
+      //
+      fmt::print("The emulator hit a HLT instruction.\n");
+      fmt::print("Stopping the cpu.\n");
+      Stop_ = true;
+      TestcaseRes_ = Timedout_t();
+      break;
+    }
     default: {
 
       //
@@ -1321,7 +1369,8 @@ uint8_t *WhvBackend_t::PhysTranslate(const Gpa_t Gpa) const {
 }
 
 bool WhvBackend_t::SetTraceFile(const fs::path &TestcaseTracePath,
-                                const TraceType_t TraceType) {
+                                const TraceType_t TraceType,
+                                const uint64_t StartingAddress) {
 
   if (TraceType == TraceType_t::Rip) {
     fmt::print("Rip traces can be only generated with bochscpu.\n");
@@ -1337,6 +1386,8 @@ bool WhvBackend_t::SetTraceFile(const fs::path &TestcaseTracePath,
   if (TraceFile_ == nullptr) {
     return false;
   }
+
+  StartingAddress_ = StartingAddress;
 
   return true;
 }

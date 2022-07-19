@@ -339,6 +339,60 @@ public:
                          fmt::format("{}+{:#x}", Buffer, Offset));
     return SymbolCache_.at(SymbolAddress);
   }
+
+  [[nodiscard]] std::vector<std::string> GetCallStacks(uint64_t FrameOffset, uint64_t StackOffset, uint64_t InstOffset, uint32_t Count) {
+      std::vector<std::string> Stacks;
+      PDEBUG_STACK_FRAME Frames = NULL;
+
+	  Frames = new DEBUG_STACK_FRAME[Count];
+	  if (Frames == NULL){
+		  fmt::print("Unable to allocate stack frames\n");
+          return Stacks;
+	  }
+
+      ULONG Filled;
+      HRESULT Status = Control_->GetStackTrace(FrameOffset, StackOffset, InstOffset, Frames, Count, &Filled);
+
+      if (FAILED(Status)) {
+          __debugbreak();
+      }
+
+      Count = Filled;
+      PDEBUG_STACK_FRAME tmp = Frames;
+
+      for (int i = 0; i < Count; i++) {
+          std::string StackInfo = GetName(tmp->ReturnOffset, true);
+          Stacks.push_back(StackInfo);
+          tmp++;
+      }
+
+	  return Stacks;
+  }
+
+  [[nodiscard]] std::vector<std::uint64_t> GetSymbols(std::string Pattern) {
+      std::vector<uint64_t> Symbols;
+      uint64_t Handle;
+
+      Symbols_->StartSymbolMatch(Pattern.c_str(), &Handle);
+
+      char Buffer[256] = { 0 };
+	  ULONG Size;
+	  uint64_t Symbol;
+      
+      while (!FAILED(Symbols_->GetNextSymbolMatch(Handle, Buffer, 256, &Size, &Symbol))) {
+
+		  if (!AddSymbol(Buffer, Symbol)) {
+			  __debugbreak();
+              return Symbols;
+		  }
+
+          memset(Buffer, 0, 256);
+          Symbols.push_back(Symbol);
+      }
+     
+      Symbols_->EndSymbolMatch(Handle);
+      return Symbols;
+  }
 };
 #else
 #include <cstdlib>

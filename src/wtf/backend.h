@@ -21,6 +21,10 @@ struct Cr3Change_t {
   constexpr std::string_view Name() const { return "cr3"; }
 };
 
+struct Interesting_t {
+	std::string_view Name() const { return "interesting"; }
+};
+
 struct Crash_t {
   std::string CrashName;
   Crash_t() = default;
@@ -28,7 +32,7 @@ struct Crash_t {
   std::string_view Name() const { return "crash"; }
 };
 
-using TestcaseResult_t = std::variant<Ok_t, Timedout_t, Cr3Change_t, Crash_t>;
+using TestcaseResult_t = std::variant<Ok_t, Timedout_t, Cr3Change_t, Crash_t, Interesting_t>;
 
 //
 // Page faults error bits.
@@ -222,7 +226,14 @@ public:
   //
 
   virtual bool SetTraceFile(const fs::path &TestcaseTracePath,
-                            const TraceType_t TraceType);
+                            const TraceType_t TraceType,
+                            const uint64_t StartingAddress = 0);
+  
+  //
+  // Context switching override.
+  //
+
+  virtual void SetAllowContextSwitch();
 
   //
   // Breakpoints.
@@ -230,6 +241,8 @@ public:
 
   virtual bool SetBreakpoint(const Gva_t Gva,
                              const BreakpointHandler_t Handler) = 0;
+
+  virtual void RemoveBreakpoint(const Gva_t Gva) = 0;
 
   //
   // Virtual memory access.
@@ -276,6 +289,7 @@ public:
   //
 
   bool SetBreakpoint(const char *Symbol, const BreakpointHandler_t Handler);
+  bool SetBreakpoint(const char *Symbol, uint32_t offset, const BreakpointHandler_t Handler);
 
   //
   // Set a crash breakpoint on a symbol.
